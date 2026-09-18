@@ -208,6 +208,7 @@ LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 		// OpenAI compatible: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode
 		switch(reasoning_effort)
 		{
+		case ReasoningEffort_none:  post_content += "\"reasoning\": {\"effort\": \"none\"},";   break;
 		case ReasoningEffort_low:   post_content += "\"reasoning\": {\"effort\": \"low\"},";    break;
 		case ReasoningEffort_med:   post_content += "\"reasoning\": {\"effort\": \"medium\"},"; break;
 		case ReasoningEffort_high:  post_content += "\"reasoning\": {\"effort\": \"high\"},";  break;
@@ -551,6 +552,7 @@ std::string LLMClient::reasoningEffortString(ReasoningEffort e)
 {
 	switch(e)
 	{
+	case ReasoningEffort_none: return "none";
 	case ReasoningEffort_low: return "low";
 	case ReasoningEffort_med: return "med";
 	case ReasoningEffort_high: return "high";

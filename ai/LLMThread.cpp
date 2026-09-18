@@ -66,6 +66,7 @@ void LLMThread::doRun()
 
 		Reference<LLMClient> llm_client = new LLMClient(cur_ai_model, settings.tool_functions, settings.base_prompt, credentials, /*handler=*/this);
 		llm_client->max_num_messages = settings.max_num_messages;
+		llm_client->reasoning_effort = settings.reasoning_effort; // Was previously ignored, so every request used the default effort.
 
 		js::Vector<ThreadMessageRef, 16> temp_messages;
 

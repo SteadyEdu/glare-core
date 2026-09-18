@@ -221,6 +221,12 @@ public:
 
 	enum ReasoningEffort
 	{
+		// Ask the model not to reason at all.  Only meaningful for OpenAI-compatible endpoints, which includes locally
+		// hosted models; for the providers that have no equivalent, no effort field is sent and their default applies.
+		// This matters a great deal for a small local reasoning model: left to reason, such a model can spend its whole
+		// output budget thinking, get truncated before it writes any content, and return an empty response.
+		ReasoningEffort_none,
+
 		ReasoningEffort_low,
 		ReasoningEffort_med,
 		ReasoningEffort_high,
