@@ -561,6 +561,84 @@ std::string LLMClient::reasoningEffortString(ReasoningEffort e)
 }
 
 
+// The models this library knows about out of the box.  An application can use these, add to them, or ignore them
+// entirely and build its own AIModel values - see the LLMThread constructor that takes an AIModel.
+std::vector<AIModel> getBuiltInAIModels()
+{
+	std::vector<AIModel> models;
+
+	//--------------------------------------------- OpenAI/GPT ---------------------------------------------
+	//--------------------------------------------- Anthropic/Claude ---------------------------------------------
+	{
+		AIModel model;
+		model.id_string = "anthropic/claude-opus-4-8";
+		model.api_id_string = "claude-opus-4-8";
+		model.name = "Claude Opus 4.8";
+		model.description = "Anthropic's most capable model for agentic coding, long-horizon software engineering, and knowledge-work tasks.";
+		model.api_domain = "api.anthropic.com";
+		model.api_path = "/v1/messages";
+		model.api_key_credential_name = "anthropic_api_key";
+		model.provider = AIModel::Provider_Anthropic;
+		models.push_back(model);
+	}
+
+	{
+		AIModel model;
+		model.id_string = "anthropic/claude-opus-5";
+		model.api_id_string = "claude-opus-5";
+		model.name = "Claude Opus 5";
+		model.description = "Anthropic's most capable model for agentic coding, long-horizon software engineering, and knowledge-work tasks.";
+		model.api_domain = "api.anthropic.com";
+		model.api_path = "/v1/messages";
+		model.api_key_credential_name = "anthropic_api_key";
+		model.provider = AIModel::Provider_Anthropic;
+		models.push_back(model);
+	}
+
+	//--------------------------------------------- X.AI/Grok ---------------------------------------------
+	{
+		AIModel model;
+		model.id_string = "xai/grok-4.3";
+		model.api_id_string = "grok-4.3";
+		model.name = "Grok 4.3";
+		model.description = "From SpaceXAI. Fast, reliable model with strong tool calling and instruction following capabilities.";
+		model.api_domain = "api.x.ai";
+		model.api_path = "/v1/chat/completions";
+		model.api_key_credential_name = "xai_api_key";
+		model.provider = AIModel::Provider_XAI;
+		models.push_back(model);
+	}
+	{
+		AIModel model;
+		model.id_string = "xai/grok-4.5";
+		model.api_id_string = "grok-4.5";
+		model.name = "Grok 4.5";
+		model.description = "SpaceXAI's intelligent coding model for agentic software, engineering, and workflow tasks.";
+		model.api_domain = "api.x.ai";
+		model.api_path = "/v1/chat/completions";
+		model.api_key_credential_name = "xai_api_key";
+		model.provider = AIModel::Provider_XAI;
+		models.push_back(model);
+	}
+
+	//--------------------------------------------- Google/Gemini ---------------------------------------------
+	{
+		AIModel model;
+		model.id_string = "google/gemini-3.6-flash";
+		model.api_id_string = "gemini-3.6-flash";
+		model.name = "Gemini 3.6 Flash";
+		model.description = "";
+		model.api_domain = "generativelanguage.googleapis.com";
+		model.api_path = "/v1beta/openai/chat/completions";
+		model.api_key_credential_name = "gemini_api_key";
+		model.provider = AIModel::Provider_Google;
+		models.push_back(model);
+	}
+
+	return models;
+}
+
+
 std::string AIModel::apiURL() const
 {
 	const std::string scheme = api_scheme.empty() ? std::string("https") : api_scheme;

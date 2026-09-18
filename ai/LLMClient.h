@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2026 -
 #include <networking/HTTPClient.h>
 #include <string>
 #include <deque>
+#include <vector>
 class SimpleCredentials;
 
 
@@ -45,6 +46,10 @@ struct AIModel
 	// "http://localhost:11434/v1/chat/completions".
 	std::string apiURL() const;
 };
+
+
+// The models this library knows about out of the box, in display order.
+std::vector<AIModel> getBuiltInAIModels();
 
 
 class ToolFunctionSpec
