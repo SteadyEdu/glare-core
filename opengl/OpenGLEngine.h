@@ -1351,6 +1351,8 @@ public:
 	int getViewPortHeight() const { return current_scene->viewport_h; }
 	float getViewPortAspectRatio() const { return (float)getViewPortWidth() / (float)(getViewPortHeight()); } // Viewport width / viewport height.
 
+	bool warned_about_viewport_rect = false; // So the message about an unsupported viewport offset is printed once.
+
 	// Draw into a sub-rectangle of the render target rather than the whole of it, for stereo, where both eyes
 	// share one framebuffer.  Unlike setViewportDims() this also confines clears of the main framebuffer to the
 	// rectangle, so that drawing the second eye does not wipe the first.
@@ -1361,6 +1363,7 @@ public:
 	// must call this when it is done, rather than assuming the main viewport starts at the origin.
 	void applyMainViewport();
 	bool shouldScissorMainFramebufferClear() const;
+	void checkViewportRectSupported();
 	//----------------------------------------------------------------------------------------
 
 

@@ -3940,6 +3940,25 @@ bool OpenGLEngine::shouldScissorMainFramebufferClear() const
 }
 
 
+// Drawing into a sub-rectangle does not work when the scene renders via the offscreen buffer.  That buffer is
+// allocated at the viewport's size and the post-processing chain composites it back at the origin, so each view
+// lands on top of the last instead of beside it: the result is one view drawn twice and the rest of the target
+// left untouched.  Making the chain offset-aware is real work and buys nothing yet, since a headset needs the
+// cheap settings anyway and those do not use the offscreen buffer.
+//
+// Say so once rather than rendering half a frame and leaving the caller to wonder.
+void OpenGLEngine::checkViewportRectSupported()
+{
+	if(current_scene->clip_to_viewport && current_scene->render_to_main_render_framebuffer && !warned_about_viewport_rect)
+	{
+		warned_about_viewport_rect = true;
+		conPrint("OpenGLEngine: a viewport offset was set while rendering to the offscreen buffer.  The offset will "
+			"be ignored by the final composite, so only one view will be visible.  Turn off "
+			"render_to_offscreen_renderbuffers to draw several views into one framebuffer.");
+	}
+}
+
+
 void OpenGLEngine::applyMainViewport()
 {
 	glViewport(current_scene->viewport_x, current_scene->viewport_y, current_scene->viewport_w, current_scene->viewport_h);
@@ -8443,6 +8462,18 @@ void OpenGLEngine::draw()
 	
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
 
+	// Constrain the clears below to the viewport rectangle when the viewport is only part of the render target,
+	// so that clearing for one eye does not wipe the other.  This has to be in force before the first clear:
+	// clearing unscissored and then clearing again inside the rectangle does not undo the first clear.
+	checkViewportRectSupported();
+
+	const bool scissored_clear = shouldScissorMainFramebufferClear();
+	if(scissored_clear)
+	{
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(cur_scene->viewport_x, cur_scene->viewport_y, cur_scene->viewport_w, cur_scene->viewport_h);
+	}
+
 	if(cur_scene->render_to_main_render_framebuffer)
 	{
 		// Bind normal texture as the second colour target.  Need to do this here as transparent object render pass changes this binding.
@@ -8466,17 +8497,6 @@ void OpenGLEngine::draw()
 	else
 	{
 		// Clear colour render buffer
-		FrameBuffer::clearCurrentlyBoundFloatColourBuffer(/*drawbuffer=*/0, cur_scene->background_colour, /*alpha=*/1.f);
-	}
-
-	const bool scissored_clear = shouldScissorMainFramebufferClear();
-	if(scissored_clear)
-	{
-		glEnable(GL_SCISSOR_TEST);
-		glScissor(cur_scene->viewport_x, cur_scene->viewport_y, cur_scene->viewport_w, cur_scene->viewport_h);
-
-		// The colour clear above has already run unscissored, so redo it inside the rectangle.  Cheap, and it
-		// keeps the unscissored path - which is every non-stereo frame - exactly as it was.
 		FrameBuffer::clearCurrentlyBoundFloatColourBuffer(/*drawbuffer=*/0, cur_scene->background_colour, /*alpha=*/1.f);
 	}
 
