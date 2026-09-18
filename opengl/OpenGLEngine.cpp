@@ -352,6 +352,8 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	loaded_maps_for_sun_dir(false),
 	shadow_mapping_frame_num(0)
 {
+	viewport_x = viewport_y = 0;
+	clip_to_viewport = false;
 	viewport_w = viewport_h = 0;
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -3906,8 +3908,41 @@ void OpenGLScene::createSSAOTextures(OpenGLEngine* engine, bool normal_texture_i
 
 void OpenGLEngine::setViewportDims(int viewport_w_, int viewport_h_)
 {
+	current_scene->viewport_x = 0;
+	current_scene->viewport_y = 0;
 	current_scene->viewport_w = viewport_w_;
 	current_scene->viewport_h = viewport_h_;
+	current_scene->clip_to_viewport = false;
+}
+
+
+void OpenGLEngine::setViewportRect(int viewport_x_, int viewport_y_, int viewport_w_, int viewport_h_)
+{
+	current_scene->viewport_x = viewport_x_;
+	current_scene->viewport_y = viewport_y_;
+	current_scene->viewport_w = viewport_w_;
+	current_scene->viewport_h = viewport_h_;
+	current_scene->clip_to_viewport = true;
+}
+
+
+// A clear ignores the viewport: it covers the whole of the bound framebuffer.  So when the viewport is only part
+// of the target - two eyes sharing one framebuffer - clearing for the second eye would wipe the first.  Scissor
+// is the only state that constrains a clear, so it goes on around the clears that hit the main framebuffer and
+// comes straight off again: the auxiliary passes clear render targets of their own, in full, and scissoring
+// those with the main viewport's rectangle would leave shadow maps and post-process buffers partly uncleared.
+//
+// It does not apply when rendering to the offscreen buffer, since that buffer is allocated at the viewport's own
+// size and so its origin is already the eye's origin.
+bool OpenGLEngine::shouldScissorMainFramebufferClear() const
+{
+	return current_scene->clip_to_viewport && !current_scene->render_to_main_render_framebuffer;
+}
+
+
+void OpenGLEngine::applyMainViewport()
+{
+	glViewport(current_scene->viewport_x, current_scene->viewport_y, current_scene->viewport_w, current_scene->viewport_h);
 }
 
 
@@ -8399,7 +8434,7 @@ void OpenGLEngine::draw()
 	}
 
 
-	glViewport(0, 0, cur_scene->viewport_w, cur_scene->viewport_h); // Viewport may have been changed by shadow mapping.
+	applyMainViewport(); // Viewport may have been changed by shadow mapping.
 	
 #if !defined(OSX)
 	if(use_reverse_z)
@@ -8434,8 +8469,22 @@ void OpenGLEngine::draw()
 		FrameBuffer::clearCurrentlyBoundFloatColourBuffer(/*drawbuffer=*/0, cur_scene->background_colour, /*alpha=*/1.f);
 	}
 
+	const bool scissored_clear = shouldScissorMainFramebufferClear();
+	if(scissored_clear)
+	{
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(cur_scene->viewport_x, cur_scene->viewport_y, cur_scene->viewport_w, cur_scene->viewport_h);
+
+		// The colour clear above has already run unscissored, so redo it inside the rectangle.  Cheap, and it
+		// keeps the unscissored path - which is every non-stereo frame - exactly as it was.
+		FrameBuffer::clearCurrentlyBoundFloatColourBuffer(/*drawbuffer=*/0, cur_scene->background_colour, /*alpha=*/1.f);
+	}
+
 	// Clear depth buffer
 	FrameBuffer::clearCurrentlyBoundDepthBuffer(/*depth=*/use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
+
+	if(scissored_clear)
+		glDisable(GL_SCISSOR_TEST);
 	
 	glLineWidth(1);
 
@@ -9137,7 +9186,7 @@ void OpenGLEngine::drawCloudEnvMap()
 	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_TRUE);
 
-	glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h); // Restore viewport
+	applyMainViewport(); // Restore viewport
 
 	bindTextureToTextureUnit(*this->cloud_env_texture, /*texture_unit_index=*/CLOUD_ENV_TEXTURE_UNIT_INDEX);
 }
@@ -9184,7 +9233,7 @@ void OpenGLEngine::doVolumetricCloudPass(OpenGLTexture* colour_tex_input)
 		DebugGroup composite_debug_group("cloud composite");
 
 		current_scene->cloud_composite_framebuffer->bindForDrawing();
-		glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h); // Restore viewport
+		applyMainViewport(); // Restore viewport
 
 		cloud_composite_prog->useProgram();
 
@@ -9311,7 +9360,7 @@ void OpenGLEngine::doBloomPostProcess(OpenGLTexture* colour_tex_input)
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 		glEnable(GL_DEPTH_TEST);
 	
-		glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h); // Restore viewport
+		applyMainViewport(); // Restore viewport
 
 
 		if(query_profiling_enabled && bloom_gpu_timer->isRunning())
@@ -11316,10 +11365,20 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE); // Only write the alpha channel, leave the rendered image alone.
 
 	// ClearBuffer is affected by the colour write mask, so this only touches alpha, and the RGB values passed here are discarded.
+	const bool scissored_alpha_clear = shouldScissorMainFramebufferClear();
+	if(scissored_alpha_clear)
+	{
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(current_scene->viewport_x, current_scene->viewport_y, current_scene->viewport_w, current_scene->viewport_h);
+	}
+
 	if(current_scene->render_to_main_render_framebuffer)
 		current_scene->main_render_framebuffer->clearFloatColourBuffer(/*draw buffer=*/0, Colour3f(0.f, 0.f, 0.f), /*alpha=*/1.f);
 	else
 		FrameBuffer::clearCurrentlyBoundFloatColourBuffer(/*drawbuffer=*/0, Colour3f(0.f, 0.f, 0.f), /*alpha=*/1.f);
+
+	if(scissored_alpha_clear)
+		glDisable(GL_SCISSOR_TEST);
 
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // Restore colourmask
 #endif
@@ -11705,7 +11764,7 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 			col_and_depth_pre_pass_gpu_timer->endTimerQuery();
 
 		// Restore viewport
-		glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h);
+		applyMainViewport();
 	}
 }
 
@@ -11881,7 +11940,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 		glEnable(GL_DEPTH_TEST); // Restore depth testing
 		glDepthMask(GL_TRUE); // Restore
-		glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h); // Restore viewport
+		applyMainViewport(); // Restore viewport
 	}
 }
 
@@ -12126,7 +12185,7 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 
 		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 
-		glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h); // Restore viewport
+		applyMainViewport(); // Restore viewport
 	}
 }
 
@@ -14485,7 +14544,7 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 
 	glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 	glEnable(GL_DEPTH_TEST); // Restore
-	glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h); // Restore viewport
+	applyMainViewport(); // Restore viewport
 }
 
 

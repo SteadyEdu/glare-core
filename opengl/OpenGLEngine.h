@@ -820,7 +820,18 @@ public:
 
 	bool loaded_maps_for_sun_dir;
 
+	// The rectangle of the render target that the main passes draw into.
+	//
+	// The offset is zero for ordinary rendering, where the viewport is the whole target.  It exists for stereo,
+	// where both eyes are drawn into one framebuffer side by side and each eye is a sub-rectangle of it.  Note
+	// that only the main passes honour it: passes that render into their own textures - shadow maps, bloom
+	// downsizes, SSAO, the prepass - set a viewport to suit their own target and are unaffected.
+	int viewport_x, viewport_y;
 	int viewport_w, viewport_h;
+
+	// True when the viewport is only part of the render target, so clears aimed at the main framebuffer have to
+	// be confined to it.  Set by setViewportRect() and cleared by setViewportDims().
+	bool clip_to_viewport;
 
 	GLObjectRef env_ob;
 
@@ -1339,6 +1350,17 @@ public:
 	int getViewPortWidth()  const { return current_scene->viewport_w; } // Return viewport width, in pixels.
 	int getViewPortHeight() const { return current_scene->viewport_h; }
 	float getViewPortAspectRatio() const { return (float)getViewPortWidth() / (float)(getViewPortHeight()); } // Viewport width / viewport height.
+
+	// Draw into a sub-rectangle of the render target rather than the whole of it, for stereo, where both eyes
+	// share one framebuffer.  Unlike setViewportDims() this also confines clears of the main framebuffer to the
+	// rectangle, so that drawing the second eye does not wipe the first.
+	void setViewportRect(int viewport_x_, int viewport_y_, int viewport_w_, int viewport_h_);
+	Vec2i getViewportOffset() const { return Vec2i(current_scene->viewport_x, current_scene->viewport_y); }
+
+	// Set the GL viewport back to the main one.  Any pass that redirects the viewport to its own render target
+	// must call this when it is done, rather than assuming the main viewport starts at the origin.
+	void applyMainViewport();
+	bool shouldScissorMainFramebufferClear() const;
 	//----------------------------------------------------------------------------------------
 
 
