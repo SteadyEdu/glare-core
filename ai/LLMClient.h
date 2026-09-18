@@ -19,9 +19,15 @@ struct AIModel
 	std::string name; // Name shown to user, e.g. "Llama-3.3-70B-Instruct-Turbo [together.ai]"
 	std::string description; // Description shown to user, e.g. "Meta's open source model, hosted by together.ai"
 
+	std::string api_scheme; // "https", or "http" for a model server on the local network that does not use TLS.
 	std::string api_domain; // e.g. api.openai.com
+	int api_port; // -1 = use the default port for the scheme.  Locally hosted model servers tend to use their own port,
+	              // e.g. 11434 for Ollama, 1234 for LM Studio.
 	std::string api_path; // e.g. "/v1/messages"
-	std::string api_key_credential_name; // Key used to look up API key credential, e.g. "openai_api_key"
+
+	// Key used to look up the API key credential, e.g. "openai_api_key".  If empty, no API key is looked up and no
+	// authorization header is sent, which is what a locally hosted model server generally wants.
+	std::string api_key_credential_name;
 
 	enum Provider
 	{
@@ -33,7 +39,11 @@ struct AIModel
 	};
 	Provider provider;
 
-	AIModel() : provider(Provider_Other) {}
+	AIModel() : api_scheme("https"), api_port(-1), provider(Provider_Other) {}
+
+	// The full URL to POST to, e.g. "https://api.anthropic.com/v1/messages" or
+	// "http://localhost:11434/v1/chat/completions".
+	std::string apiURL() const;
 };
 
 

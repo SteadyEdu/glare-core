@@ -26,6 +26,17 @@ LLMThread::LLMThread(const std::string& AI_model_id_, const Settings& settings_,
 }
 
 
+LLMThread::LLMThread(const AIModel& AI_model_, const Settings& settings_, const SimpleCredentials* credentials_, ThreadSafeQueue<ThreadMessageRef>* out_msg_queue_)
+:	AI_model_id(AI_model_.id_string),
+	supplied_AI_model(AI_model_),
+	settings(settings_),
+	credentials(credentials_),
+	out_msg_queue(out_msg_queue_),
+	out_msg_queue_event_fd(NULL)
+{
+}
+
+
 LLMThread::~LLMThread()
 {
 }
@@ -107,10 +118,16 @@ void LLMThread::doRun()
 			models.push_back(model);
 		}
 
+		// A model supplied by the caller wins over the built-in table.
 		AIModel cur_ai_model;
-		for(size_t i=0; i<models.size(); ++i)
-			if(models[i].id_string == this->AI_model_id)
-				cur_ai_model = models[i];
+		if(!supplied_AI_model.id_string.empty())
+			cur_ai_model = supplied_AI_model;
+		else
+		{
+			for(size_t i=0; i<models.size(); ++i)
+				if(models[i].id_string == this->AI_model_id)
+					cur_ai_model = models[i];
+		}
 
 		if(cur_ai_model.id_string.empty())
 			throw glare::Exception("Failed to find AI model with id '" + this->AI_model_id + "'");

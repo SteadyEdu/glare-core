@@ -433,7 +433,7 @@ LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 
 				Timer timer;
 				HTTPClient::ResponseInfo response_info = m_http_client->sendPost(
-					"https://" + cur_ai_model.api_domain + cur_ai_model.api_path,
+					cur_ai_model.apiURL(),
 					post_content, 
 					"application/json", // content type
 					/*handler=*/*this
@@ -561,30 +561,52 @@ std::string LLMClient::reasoningEffortString(ReasoningEffort e)
 }
 
 
+std::string AIModel::apiURL() const
+{
+	const std::string scheme = api_scheme.empty() ? std::string("https") : api_scheme;
+	const std::string port_part = (api_port == -1) ? std::string() : (":" + toString(api_port));
+	return scheme + "://" + api_domain + port_part + api_path;
+}
+
+
 Reference<HTTPClient> LLMClient::createHTTPClient()
 {
-	const auto res = credentials->creds.find(cur_ai_model.api_key_credential_name);
-	if(res == credentials->creds.end())
-		throw glare::Exception("ERROR: WorkerThread::createHTTPClient(): couldn't find credentials '" + cur_ai_model.api_key_credential_name + "'");
-	const std::string api_key = res->second;
+	// A model served from the local network generally has no API key at all, in which case api_key_credential_name is
+	// left empty and we send no authorization header.  A cloud model without its credential configured is still an
+	// error worth failing on, rather than sending an unauthenticated request that will just be rejected.
+	std::string api_key;
+	const bool needs_api_key = !cur_ai_model.api_key_credential_name.empty();
+	if(needs_api_key)
+	{
+		if(!credentials)
+			throw glare::Exception("ERROR: LLMClient::createHTTPClient(): no credentials available, needed for '" + cur_ai_model.api_key_credential_name + "'");
 
-	conPrint("Making new HTTP connection to '" + cur_ai_model.api_domain + "'...");
+		const auto res = credentials->creds.find(cur_ai_model.api_key_credential_name);
+		if(res == credentials->creds.end())
+			throw glare::Exception("ERROR: LLMClient::createHTTPClient(): couldn't find credentials '" + cur_ai_model.api_key_credential_name + "'");
+		api_key = res->second;
+	}
+
+	conPrint("Making new HTTP connection to '" + cur_ai_model.apiURL() + "'...");
 
 	Reference<HTTPClient> http_client = new HTTPClient();
 	http_client->max_socket_buffer_size = 1024 * 1024; // Can hit the limit with the default 2^16 size, so increase it.
 	
-	if(cur_ai_model.provider == AIModel::Provider_Anthropic)
+	if(needs_api_key)
 	{
-		http_client->additional_headers.push_back("x-api-key: " + api_key);
-		http_client->additional_headers.push_back("anthropic-version: 2023-06-01"); // See https://docs.anthropic.com/en/api/versioning
-	}
-	else
-	{
-		// Else OpenAI or OpenAI-compatible:
-		http_client->additional_headers.push_back("Authorization: Bearer " + api_key);
+		if(cur_ai_model.provider == AIModel::Provider_Anthropic)
+		{
+			http_client->additional_headers.push_back("x-api-key: " + api_key);
+			http_client->additional_headers.push_back("anthropic-version: 2023-06-01"); // See https://docs.anthropic.com/en/api/versioning
+		}
+		else
+		{
+			// Else OpenAI or OpenAI-compatible:
+			http_client->additional_headers.push_back("Authorization: Bearer " + api_key);
+		}
 	}
 
-	http_client->connectAndEnableKeepAlive("https", cur_ai_model.api_domain, /*port=*/-1);
+	http_client->connectAndEnableKeepAlive(cur_ai_model.api_scheme.empty() ? "https" : cur_ai_model.api_scheme, cur_ai_model.api_domain, cur_ai_model.api_port);
 
 	return http_client;
 }

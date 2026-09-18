@@ -92,7 +92,12 @@ public:
 		LLMClient::ReasoningEffort reasoning_effort;
 	};
 
+	// Look the model up by id in the built-in table of models (see doRun()).
 	LLMThread(const std::string& AI_model_id, const Settings& settings, const SimpleCredentials* credentials, ThreadSafeQueue<ThreadMessageRef>* out_msg_queue);
+
+	// Use a model supplied by the caller.  This lets an application define its own set of models - loaded from its
+	// config, say - including models the built-in table knows nothing about, such as one served from the local network.
+	LLMThread(const AIModel& AI_model, const Settings& settings, const SimpleCredentials* credentials, ThreadSafeQueue<ThreadMessageRef>* out_msg_queue);
 	virtual ~LLMThread();
 
 	virtual void doRun() override;
@@ -114,7 +119,8 @@ public:
 	EventFD* out_msg_queue_event_fd;
 
 private:
-	std::string AI_model_id;
+	std::string AI_model_id; // Only used when supplied_AI_model is not set.
+	AIModel supplied_AI_model; // The model the caller gave us, or a default-constructed one (empty id_string) if it looked the model up by id instead.
 	Settings settings;
 	const SimpleCredentials* credentials;
 	ThreadSafeQueue<ThreadMessageRef>* out_msg_queue;
