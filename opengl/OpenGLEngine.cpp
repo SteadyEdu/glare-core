@@ -354,6 +354,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 {
 	viewport_x = viewport_y = 0;
 	clip_to_viewport = false;
+	view_index_in_frame = 0;
 	viewport_w = viewport_h = 0;
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -3913,6 +3914,21 @@ void OpenGLEngine::setViewportDims(int viewport_w_, int viewport_h_)
 	current_scene->viewport_w = viewport_w_;
 	current_scene->viewport_h = viewport_h_;
 	current_scene->clip_to_viewport = false;
+}
+
+
+// Which view of the frame is about to be drawn, when several views share a framebuffer.  Zero for ordinary
+// rendering, and for the first eye of a stereo pair.
+//
+// This decides how the frame gets cleared, which matters more than it sounds on a tile-based GPU - which is what
+// every standalone headset has.  Clearing a whole framebuffer is the cheap case: the driver knows the previous
+// contents are dead and can skip loading them into tile memory.  Clearing part of one is the expensive case,
+// because everything outside the cleared rectangle has to be preserved, so the old contents must be loaded and
+// written back.  Clearing once for the whole target and not at all for later views avoids that entirely, and is
+// correct because each view writes only its own rectangle.
+void OpenGLEngine::setViewIndexInFrame(int view_index)
+{
+	current_scene->view_index_in_frame = view_index;
 }
 
 
@@ -8462,17 +8478,10 @@ void OpenGLEngine::draw()
 	
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
 
-	// Constrain the clears below to the viewport rectangle when the viewport is only part of the render target,
-	// so that clearing for one eye does not wipe the other.  This has to be in force before the first clear:
-	// clearing unscissored and then clearing again inside the rectangle does not undo the first clear.
 	checkViewportRectSupported();
 
-	const bool scissored_clear = shouldScissorMainFramebufferClear();
-	if(scissored_clear)
-	{
-		glEnable(GL_SCISSOR_TEST);
-		glScissor(cur_scene->viewport_x, cur_scene->viewport_y, cur_scene->viewport_w, cur_scene->viewport_h);
-	}
+	// Only the first view of the frame clears, and it clears the whole target.  See setViewIndexInFrame().
+	const bool clear_main_framebuffer = (cur_scene->view_index_in_frame == 0);
 
 	if(cur_scene->render_to_main_render_framebuffer)
 	{
@@ -8485,26 +8494,28 @@ void OpenGLEngine::draw()
 		// Draw to all colour buffers: colour and normal buffer.
 		cur_scene->main_render_framebuffer->setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
 
-		// Clear colour render buffer
-		cur_scene->main_render_framebuffer->clearFloatColourBuffer(/*drawbuffer=*/0, cur_scene->background_colour, /*alpha=*/1.f);
+		if(clear_main_framebuffer)
+		{
+			// Clear colour render buffer
+			cur_scene->main_render_framebuffer->clearFloatColourBuffer(/*drawbuffer=*/0, cur_scene->background_colour, /*alpha=*/1.f);
 
-		// Clear normal render buffer.  Note that we have to use the uint version for clearing the normal buffer if it's a uint format.
-		if(normal_texture_is_uint)
-			cur_scene->main_render_framebuffer->clearUIntColourBuffer(/*drawbuffer=*/1, /*r=*/0, 0, 0, 0);
-		else
-			cur_scene->main_render_framebuffer->clearFloatColourBuffer(/*drawbuffer=*/1, Colour3f(0.f), /*alpha=*/0.f);
+			// Clear normal render buffer.  Note that we have to use the uint version for clearing the normal buffer if it's a uint format.
+			if(normal_texture_is_uint)
+				cur_scene->main_render_framebuffer->clearUIntColourBuffer(/*drawbuffer=*/1, /*r=*/0, 0, 0, 0);
+			else
+				cur_scene->main_render_framebuffer->clearFloatColourBuffer(/*drawbuffer=*/1, Colour3f(0.f), /*alpha=*/0.f);
+		}
 	}
 	else
 	{
 		// Clear colour render buffer
-		FrameBuffer::clearCurrentlyBoundFloatColourBuffer(/*drawbuffer=*/0, cur_scene->background_colour, /*alpha=*/1.f);
+		if(clear_main_framebuffer)
+			FrameBuffer::clearCurrentlyBoundFloatColourBuffer(/*drawbuffer=*/0, cur_scene->background_colour, /*alpha=*/1.f);
 	}
 
 	// Clear depth buffer
-	FrameBuffer::clearCurrentlyBoundDepthBuffer(/*depth=*/use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
-
-	if(scissored_clear)
-		glDisable(GL_SCISSOR_TEST);
+	if(clear_main_framebuffer)
+		FrameBuffer::clearCurrentlyBoundDepthBuffer(/*depth=*/use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
 	
 	glLineWidth(1);
 

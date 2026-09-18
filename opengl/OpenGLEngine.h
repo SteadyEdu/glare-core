@@ -833,6 +833,9 @@ public:
 	// be confined to it.  Set by setViewportRect() and cleared by setViewportDims().
 	bool clip_to_viewport;
 
+	// Which view of the frame is being drawn, when several share a framebuffer.  Only view 0 clears.
+	int view_index_in_frame;
+
 	GLObjectRef env_ob;
 
 	std::set<Reference<GLLight>> lights;
@@ -1357,6 +1360,12 @@ public:
 	// share one framebuffer.  Unlike setViewportDims() this also confines clears of the main framebuffer to the
 	// rectangle, so that drawing the second eye does not wipe the first.
 	void setViewportRect(int viewport_x_, int viewport_y_, int viewport_w_, int viewport_h_);
+
+	// Which view of the frame is about to be drawn, when several views share a framebuffer.  View 0 clears the
+	// whole target; later views do not clear at all, which is both correct - each view writes only its own
+	// rectangle - and much cheaper on the tile-based GPUs headsets use, where a partial clear forces the old
+	// framebuffer contents to be loaded and written back.  Reset to 0 at the start of each frame.
+	void setViewIndexInFrame(int view_index);
 	Vec2i getViewportOffset() const { return Vec2i(current_scene->viewport_x, current_scene->viewport_y); }
 
 	// Set the GL viewport back to the main one.  Any pass that redirects the viewport to its own render target
