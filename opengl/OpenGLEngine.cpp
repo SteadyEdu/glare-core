@@ -8464,8 +8464,15 @@ void OpenGLEngine::draw()
 	}
 	else
 	{
-		// Bind requested target frame buffer as output buffer
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+		// Bind requested target frame buffer as output buffer.
+		//
+		// Bound to FRAMEBUFFER rather than DRAW_FRAMEBUFFER when there is a target, because a WebXR session's
+		// framebuffer is opaque and implementations are stricter about how one may be bound.  Binding both the
+		// read and draw targets costs nothing here and keeps that case working.
+		if(this->target_frame_buffer.nonNull())
+			glBindFramebuffer(GL_FRAMEBUFFER, this->target_frame_buffer->buffer_name);
+		else
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 	}
 
 
