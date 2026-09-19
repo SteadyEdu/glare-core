@@ -1417,6 +1417,17 @@ public:
 	//----------------------------------- Target framebuffer ---------------------------------
 	// Set the primary render target frame buffer.  Can be NULL in which case framebuffer 0 is drawn to.
 	void setTargetFrameBuffer(const Reference<FrameBuffer> frame_buffer) { target_frame_buffer = frame_buffer; }
+
+	// Whether the target framebuffer's colour output is COLOR_ATTACHMENT0, as it is for any framebuffer we made
+	// ourselves.  Set it false for one whose attachments are not ours to name.
+	//
+	// A WebXR session's framebuffer is the case that matters.  It behaves like the default framebuffer, where the
+	// only valid draw buffer is BACK - and naming COLOR_ATTACHMENT0 on one does not raise an error on a Quest, it
+	// simply stops the framebuffer accepting colour from then on.  The whole session goes black and stays black,
+	// with correct pixels if the same frame is drawn into an ordinary framebuffer, which is a long way to go to
+	// find one call.  Note the code below already declines to set a draw buffer on the default framebuffer for
+	// the same reason.
+	void setTargetFrameBufferUsesAttachments(bool uses_attachments) { target_frame_buffer_uses_attachments = uses_attachments; }
 	void setTargetFrameBufferAndViewport(const Reference<FrameBuffer> frame_buffer); // Set target framebuffer, also set viewport to the whole framebuffer.
 
 	Reference<FrameBuffer> getTargetFrameBuffer() const { return target_frame_buffer; }
@@ -1848,6 +1859,7 @@ private:
 	Reference<TextureServer> texture_server;
 
 	Reference<FrameBuffer> target_frame_buffer;
+	bool target_frame_buffer_uses_attachments = true;
 
 	glare::TaskManager* main_task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).
 	glare::TaskManager* high_priority_task_manager; // For short, processor intensive tasks that the main thread depends on, such as computing animation data for the current frame

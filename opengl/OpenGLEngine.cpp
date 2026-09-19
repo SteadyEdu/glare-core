@@ -10128,7 +10128,7 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 				if(this->target_frame_buffer)
 				{
 					this->target_frame_buffer->bindForDrawing();
-					this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+					if(target_frame_buffer_uses_attachments) this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
 				}
 				else
 					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
@@ -10192,7 +10192,7 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 			if(this->target_frame_buffer)
 			{
 				this->target_frame_buffer->bindForDrawing();
-				this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+				if(target_frame_buffer_uses_attachments) this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
 			}
 			else
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
@@ -10593,7 +10593,7 @@ void OpenGLEngine::drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& 
 		if(this->target_frame_buffer)
 		{
 			this->target_frame_buffer->bindForDrawing();
-			this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+			if(target_frame_buffer_uses_attachments) this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 		}
 		else
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer set already for it.
@@ -10943,7 +10943,7 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 			if(this->target_frame_buffer)
 			{
 				this->target_frame_buffer->bindForDrawing();
-				this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+				if(target_frame_buffer_uses_attachments) this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
 			}
 			else
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
@@ -11193,7 +11193,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 		if(this->target_frame_buffer)
 		{
 			this->target_frame_buffer->bindForDrawing();
-			this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+			if(target_frame_buffer_uses_attachments) this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
 		}
 		else
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
@@ -11462,7 +11462,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 		if(this->target_frame_buffer)
 		{
 			this->target_frame_buffer->bindForDrawing();
-			this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+			if(target_frame_buffer_uses_attachments) this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
 		}
 		else
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
@@ -12006,7 +12006,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 			if(this->target_frame_buffer)
 			{
 				this->target_frame_buffer->bindForDrawing();
-				this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+				if(target_frame_buffer_uses_attachments) this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
 			}
 			else
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
@@ -12297,7 +12297,7 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 	if(this->target_frame_buffer)
 	{
 		this->target_frame_buffer->bindForDrawing();
-		this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+		if(target_frame_buffer_uses_attachments) this->target_frame_buffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
 	}
 	else
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
